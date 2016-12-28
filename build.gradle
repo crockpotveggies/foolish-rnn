@@ -1,0 +1,77 @@
+buildscript {
+  repositories { jcenter() }
+  dependencies {
+    classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
+  }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'maven'
+apply plugin: 'application'
+
+description = """April Fools"""
+
+group = 'ai.bernie'
+version = '0.1-SNAPSHOT'
+applicationName = 'aprilfools'
+mainClassName = 'ai.bernie.train.RNNFool'
+compileJava.options.encoding = 'UTF-8'
+targetCompatibility = '1.8'
+sourceCompatibility = '1.8'
+
+if (!project.hasProperty("nd4jOS")) {
+  ext.nd4jOS = "macosx"
+}
+
+switch(nd4jOS) {
+  case 'windows':
+    nd4jOS = 'windows-x86_64'
+    break
+  case 'linux':
+    nd4jOS = 'linux-x86_64'
+    break
+  case 'linux-ppc64':
+    nd4jOS = 'linux-ppc64'
+    break
+  case 'linux-ppc64le':
+    nd4jOS = 'linux-ppc64le'
+    break
+  case 'macosx':
+    nd4jOS = 'macosx-x86_64'
+    break
+  default:
+    throw new Exception('Unknown OS defined for -Plibnd4jOS parameter. ND4J will be unable to find platform-specific binaries and thus unable to run.')
+}
+
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+  // Use 'jcenter' for resolving your dependencies.
+  // You can declare any Maven/Ivy/file repository here.
+  jcenter()
+  mavenLocal()
+}
+
+configurations {
+  all {
+    exclude group: 'org.bytedeco', module: 'javacpp-presets'
+  }
+}
+
+dependencies {
+  compile 'org.slf4j:slf4j-simple:1.7.21'
+  compile 'org.nd4j:nd4j-native:0.7.2-SNAPSHOT'
+  compile 'org.nd4j:nd4j-native:0.7.2-SNAPSHOT:'+nd4jOS
+  compile 'org.deeplearning4j:deeplearning4j-core:0.7.2-SNAPSHOT'
+  compile 'org.deeplearning4j:deeplearning4j-ui_2.11:0.7.2-SNAPSHOT'
+  compile 'org.bytedeco:javacpp:1.2'
+  compile 'org.bytedeco.javacpp-presets:opencv:3.1.0-1.2'
+  compile 'org.bytedeco.javacpp-presets:opencv:3.1.0-1.2:'+nd4jOS
+  compile 'org.bytedeco.javacpp-presets:flandmark:1.07-1.2'
+  compile 'org.bytedeco.javacpp-presets:flandmark:1.07-1.2:'+nd4jOS
+
+  testCompile 'junit:junit:4.12'
+}
+
