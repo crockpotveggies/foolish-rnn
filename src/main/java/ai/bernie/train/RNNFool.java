@@ -31,10 +31,13 @@ import java.nio.charset.Charset;
 import java.util.Random;
 
 /**
- * This example trains a RNN. WHen trained we only have to put the first
- * character of LEARNSTRING to the RNN, and it will recite the following chars
+ * This example trains a RNN. Using the Lotto 649 dataset, the RNN
+ * will start to predict sequential numbers that resemble "winning"
+ * lottery numbers.
  *
- * @author Peter Grossmann
+ * Partly derived from the Shakespeare character generator.
+ *
+ * @author crockpotveggies
  */
 public class RNNFool {
   private static final Logger logger = LoggerFactory.getLogger(RNNFool.class);
@@ -53,8 +56,6 @@ public class RNNFool {
     int nSamplesToGenerate = 4;					//Number of samples to generate after each training epoch
     int nCharactersToSample = 6;				//Length of each sample to generate
     String generationInitialization = "\n";		//Optional character initialization; a random character is used if null
-    // Above is Used to 'prime' the LSTM with a character sequence to continue/complete.
-    // Initialization characters must all be in CharacterIterator.getMinimalCharacterSet() by default
     Random rng = new Random(12345);
 
     // ui server
