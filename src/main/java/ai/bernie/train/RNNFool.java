@@ -1,5 +1,6 @@
 package ai.bernie.train;
 
+import org.deeplearning4j.api.storage.StatsStorage;
 import org.deeplearning4j.nn.api.Layer;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.BackpropType;
@@ -11,6 +12,10 @@ import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.deeplearning4j.ui.api.UIServer;
+import org.deeplearning4j.ui.stats.StatsListener;
+import org.deeplearning4j.ui.stats.impl.DefaultStatsUpdateConfiguration;
+import org.deeplearning4j.ui.storage.InMemoryStatsStorage;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
@@ -41,9 +46,9 @@ public class RNNFool {
     int lstmLayerSize3 = 50;
     int lstmLayerSize4 = 50;
     int miniBatchSize = 32;						//Size of mini batch to use when  training
-    int exampleLength = 600;					//Length of each training example sequence to use. This could certainly be increased
-    int tbpttLength = 6;                       //Length for truncated backpropagation through time. i.e., do parameter updates ever 50 characters
-    int numEpochs = 8;							//Total number of training epochs
+    int exampleLength = 700;					//Length of each training example sequence to use. This could certainly be increased
+    int tbpttLength = 7;                       //Length for truncated backpropagation through time. i.e., do parameter updates ever 50 characters
+    int numEpochs = 9;							//Total number of training epochs
     int generateSamplesEveryNMinibatches = 100;  //How frequently to generate samples from the network? 1000 characters / 50 tbptt length: 20 parameter updates per minibatch
     int nSamplesToGenerate = 4;					//Number of samples to generate after each training epoch
     int nCharactersToSample = 6;				//Length of each sample to generate
@@ -51,6 +56,11 @@ public class RNNFool {
     // Above is Used to 'prime' the LSTM with a character sequence to continue/complete.
     // Initialization characters must all be in CharacterIterator.getMinimalCharacterSet() by default
     Random rng = new Random(12345);
+
+    // ui server
+    final StatsStorage statsStorage = new InMemoryStatsStorage();
+    final UIServer uiServer = UIServer.getInstance();
+    uiServer.attach(statsStorage);
 
 
     logger.info("\nLoading training data...");
@@ -68,8 +78,8 @@ public class RNNFool {
         .rmsDecay(0.96)
         .seed(12345)
         .regularization(true)
-//        .l1(0.0001)
-//        .l2(0.00001)
+        .l1(0.001)
+        .l2(0.0001)
         .dropOut(0.7)
         .weightInit(WeightInit.XAVIER)
         .updater(Updater.RMSPROP)
@@ -79,18 +89,21 @@ public class RNNFool {
         .layer(1, new GravesLSTM.Builder().nIn(lstmLayerSize).nOut(lstmLayerSize2).build())
         .layer(2, new GravesLSTM.Builder().nIn(lstmLayerSize2).nOut(lstmLayerSize3).build())
         .layer(3, new GravesLSTM.Builder().nIn(lstmLayerSize3).nOut(lstmLayerSize4).build())
-        .layer(4, new GravesLSTM.Builder().nIn(lstmLayerSize4).nOut(lstmLayerSize3).build())
+//        .layer(4, new GravesLSTM.Builder().nIn(lstmLayerSize4).nOut(lstmLayerSize3).build())
 //        .layer(5, new GravesLSTM.Builder().nIn(lstmLayerSize3).nOut(lstmLayerSize2)
 //            .activation("tanh").build())
-        .layer(5, new RnnOutputLayer.Builder(LossFunction.MCXENT).activation(Activation.SOFTMAX)        //MCXENT + softmax for classification
-            .nIn(lstmLayerSize3).nOut(nOut).build())
+        .layer(4, new RnnOutputLayer.Builder(LossFunction.NEGATIVELOGLIKELIHOOD).activation(Activation.SOFTMAX)        //MCXENT + softmax for classification
+            .nIn(lstmLayerSize4).nOut(nOut).build())
         .backpropType(BackpropType.TruncatedBPTT).tBPTTForwardLength(tbpttLength).tBPTTBackwardLength(tbpttLength)
         .pretrain(false).backprop(true)
         .build();
 
     MultiLayerNetwork net = new MultiLayerNetwork(conf);
     net.init();
-    net.setListeners(new ScoreIterationListener(1));
+    net.setListeners(
+        new ScoreIterationListener(1),
+        new StatsListener(statsStorage)
+    );
 
     //Print the  number of parameters in the network (and for each layer)
     Layer[] layers = net.getLayers();
@@ -196,7 +209,7 @@ public class RNNFool {
     for(int i = 0; i < numSamples; i++) {
       //Sample from network (and feed samples back into input) one character at a time (for all samples)
       //Sampling is done in parallel here
-      net.rnnClearPreviousState();
+      if(i % 2 == 0) net.rnnClearPreviousState();
       INDArray output = net.rnnTimeStep(initializationInput);
       output = output.tensorAlongDimension(output.size(2) - 1, 1, 0);  //Gets the last time step output
 
